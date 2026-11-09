@@ -14,7 +14,6 @@ interface AutumnMissionProps {
 const AUTUMN_SIZE = 14;
 const AUTUMN_TERRAIN = generateTerrain('plateau', 88, AUTUMN_SIZE);
 
-// 3 View modes for the topographic autumn landscape
 type TopoMode = 'normal' | 'contours' | 'enhanced';
 
 interface TrailWaypoint {
@@ -32,9 +31,125 @@ const WAYPOINTS: TrailWaypoint[] = [
 ];
 
 /**
+ * Interactive Cliff Detector ("Le Détecteur de Falaises : Droite − Gauche").
+ * Teaches directional gradient edge detection via the difference between opposite neighbors.
+ */
+function CliffDetectorDemo(): React.JSX.Element {
+  const [leftAlt, setLeftAlt] = useState<number>(30);
+  const [rightAlt, setRightAlt] = useState<number>(230);
+
+  const diff = Math.abs(rightAlt - leftAlt);
+  const isCliff = diff >= 120;
+
+  return (
+    <div className="rounded-2xl border-2 border-amber-300 bg-white p-4 shadow-sm space-y-3">
+      <div className="flex items-center justify-between pb-2 border-b border-amber-100">
+        <h4 className="text-xs font-black uppercase tracking-wider text-[#b45309] flex items-center gap-1.5">
+          <span>📐</span>
+          <span>Expérience : Le « Détecteur de Falaises »</span>
+        </h4>
+        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+          Droite − Gauche
+        </span>
+      </div>
+
+      <p className="text-xs text-stone-600 leading-relaxed">
+        Comment la carte sait-elle où se trouve une falaise ? Elle soustrait simplement
+        l'altitude du <strong>voisin de droite</strong> et du{' '}
+        <strong>voisin de gauche</strong> !
+      </p>
+
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-6 py-2">
+        {/* Visual 2-cell comparison */}
+        <div className="flex items-center gap-3">
+          {/* Left neighbor */}
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-bold text-stone-500 mb-1">Gauche</span>
+            <div className="w-14 h-14 rounded-xl bg-stone-100 border-2 border-stone-300 flex items-center justify-center font-mono font-black text-sm text-stone-800">
+              {leftAlt} m
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="255"
+              value={leftAlt}
+              onChange={(e) => setLeftAlt(Number(e.target.value))}
+              className="w-16 mt-1.5 accent-amber-600"
+              aria-label="Régler l'altitude de gauche"
+            />
+          </div>
+
+          <span className="text-lg font-black text-stone-400 font-sans">−</span>
+
+          {/* Right neighbor */}
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-bold text-stone-500 mb-1">Droite</span>
+            <div className="w-14 h-14 rounded-xl bg-stone-100 border-2 border-stone-300 flex items-center justify-center font-mono font-black text-sm text-stone-800">
+              {rightAlt} m
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="255"
+              value={rightAlt}
+              onChange={(e) => setRightAlt(Number(e.target.value))}
+              className="w-16 mt-1.5 accent-amber-600"
+              aria-label="Régler l'altitude de droite"
+            />
+          </div>
+
+          <span className="text-lg font-black text-stone-400 font-sans">=</span>
+
+          {/* Resulting cliff indicator */}
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-bold text-stone-500 mb-1">Contour</span>
+            <div
+              className={`w-14 h-14 rounded-xl flex items-center justify-center font-mono font-black text-sm transition-all shadow-md ${
+                isCliff
+                  ? 'bg-red-600 text-white ring-4 ring-red-200 scale-105'
+                  : 'bg-stone-900 text-stone-400'
+              }`}
+            >
+              {diff}
+            </div>
+            <span className="text-[9px] font-bold mt-1 text-stone-500">
+              {isCliff ? '🔴 Falaise !' : '🟢 Plat'}
+            </span>
+          </div>
+        </div>
+
+        {/* Presets buttons */}
+        <div className="space-y-2 text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              setLeftAlt(100);
+              setRightAlt(100);
+            }}
+            className="w-full py-1.5 px-3 rounded-lg font-semibold bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer block text-left"
+          >
+            🌱 Cas 1 : Alpage plat (100 m − 100 m = <strong>0</strong>)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLeftAlt(30);
+              setRightAlt(230);
+            }}
+            className="w-full py-1.5 px-3 rounded-lg font-semibold bg-red-50 hover:bg-red-100 text-red-900 border border-red-200 cursor-pointer block text-left"
+          >
+            🧗 Cas 2 : Falaise à-pic (230 m − 30 m = <strong>200</strong>)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Mission Automne : "Les Arêtes Dorées".
  * Teaches edge detection and slope contour mapping through mountain topography.
- * Features Normal / Contours / Reinforced modes and a Trail Waypoint challenge.
+ * Features Normal / Contours / Reinforced modes, Cliff Detector demo, and a Trail Waypoint challenge.
  */
 export default function AutumnMission({
   onComplete,
@@ -44,12 +159,10 @@ export default function AutumnMission({
   const [waypoints, setWaypoints] = useState<TrailWaypoint[]>(WAYPOINTS);
   const [testedModes, setTestedModes] = useState<Set<TopoMode>>(new Set(['normal']));
 
-  // Compute contour / steepness map using pure core slopeMap
   const contoursTerrain = useMemo(() => {
     return slopeMap(AUTUMN_TERRAIN, 'clamp');
   }, []);
 
-  // Compute sharpened relief map using pure core convolve2d
   const enhancedTerrain = useMemo(() => {
     return convolve2d(AUTUMN_TERRAIN, sharpen, { borderMode: 'clamp' });
   }, []);
@@ -124,6 +237,9 @@ export default function AutumnMission({
       </div>
 
       <TrailBot season="autumn" />
+
+      {/* NEW: Interactive Cliff Detector Demo */}
+      <CliffDetectorDemo />
 
       {/* Main 2-Column Interface */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

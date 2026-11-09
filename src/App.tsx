@@ -18,7 +18,7 @@ import {
   type TrailVisionProgress,
 } from '@/core/storage';
 
-const SEASON_ORDER: SeasonId[] = ['spring', 'summer', 'autumn', 'winter'];
+const SEASON_ORDER: SeasonId[] = ['spring', 'summer', 'winter', 'autumn'];
 
 /**
  * Ambient floating particles reflecting the active alpine season.

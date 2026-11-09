@@ -22,6 +22,7 @@ const SEASONS: Array<{
   id: SeasonId;
   name: string;
   theme: string;
+  difficulty: string;
   desc: string;
   icon: string;
 }> = [
@@ -29,29 +30,33 @@ const SEASONS: Array<{
     id: 'spring',
     name: '1. Printemps',
     theme: 'Alpage & Loupe de Scan',
-    desc: 'Balaie l’herbe à la loupe pour trouver les fleurs rares.',
+    difficulty: 'Très facile',
+    desc: 'Balaie l’herbe avec la loupe carrée pour trouver les fleurs rares.',
     icon: '🌸',
   },
   {
     id: 'summer',
     name: '2. Été',
     theme: 'Zénith & Échelle 0–255',
-    desc: 'Mesure la luminosité du relief sous la course du soleil.',
+    difficulty: 'Facile',
+    desc: 'Mesure la luminosité du relief sous la course du soleil de 0 à 255.',
     icon: '☀️',
   },
   {
-    id: 'autumn',
-    name: '3. Automne',
-    theme: 'Carte Topo & Lignes de Crêtes',
-    desc: 'Détecte les à-pics et balise le sentier d’arête vertigineux.',
-    icon: '🍂',
+    id: 'winter',
+    name: '3. Hiver',
+    theme: 'Grand Brouillard & 8 Voisins',
+    difficulty: 'Moyen',
+    desc: 'Observe comment la moyenne rabote les sommets et lisse le paysage.',
+    icon: '❄️',
   },
   {
-    id: 'winter',
-    name: '4. Hiver',
-    theme: 'Grand Brouillard & 8 Voisins',
-    desc: 'Observe comment la brume fusionne et lisse chaque point.',
-    icon: '❄️',
+    id: 'autumn',
+    name: '4. Automne',
+    theme: 'Carte Topo & Lignes de Crêtes',
+    difficulty: 'Avancé',
+    desc: 'Détecte les falaises par soustraction Droite − Gauche.',
+    icon: '🍂',
   },
 ];
 
@@ -173,15 +178,20 @@ export default function HomeHero({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-2xl">{season.icon}</span>
-                    <span
-                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                        isCompleted
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-stone-200 text-stone-600'
-                      }`}
-                    >
-                      {isCompleted ? '✓ Badge Obtenu' : 'À explorer'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200">
+                        {season.difficulty}
+                      </span>
+                      <span
+                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          isCompleted
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-stone-200 text-stone-600'
+                        }`}
+                      >
+                        {isCompleted ? '✓ Obtenu' : 'À faire'}
+                      </span>
+                    </div>
                   </div>
                   <h4 className="font-black text-sm text-stone-900">{season.name}</h4>
                   <p className="text-[11px] font-bold text-orange-700">{season.theme}</p>

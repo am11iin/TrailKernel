@@ -14,12 +14,25 @@ const SEASONS_LIST: Array<{
   id: SeasonId;
   title: string;
   badge: string;
+  difficulty: string;
   icon: string;
 }> = [
-  { id: 'spring', title: '1. Printemps', badge: 'LA LOUPE', icon: '🌸' },
-  { id: 'summer', title: '2. Été', badge: '0 À 255', icon: '☀️' },
-  { id: 'autumn', title: '3. Automne', badge: 'LES CRÊTES', icon: '🍂' },
-  { id: 'winter', title: '4. Hiver', badge: 'LA BRUME', icon: '❄️' },
+  {
+    id: 'spring',
+    title: '1. Printemps',
+    badge: 'LA LOUPE',
+    difficulty: 'Tr. Facile',
+    icon: '🌸',
+  },
+  { id: 'summer', title: '2. Été', badge: '0 À 255', difficulty: 'Facile', icon: '☀️' },
+  { id: 'winter', title: '3. Hiver', badge: 'LA BRUME', difficulty: 'Moyen', icon: '❄️' },
+  {
+    id: 'autumn',
+    title: '4. Automne',
+    badge: 'LES CRÊTES',
+    difficulty: 'Avancé',
+    icon: '🍂',
+  },
 ];
 
 /**
@@ -60,7 +73,7 @@ function MountainGraphic(): React.JSX.Element {
 }
 
 /**
- * ProgressTrail — Navigation between the 4 Seasons and the locked/unlocked Revelation.
+ * ProgressTrail — Navigation between the 4 Seasons (ordered easiest to hardest) and the Revelation.
  */
 export default function ProgressTrail({
   currentView,

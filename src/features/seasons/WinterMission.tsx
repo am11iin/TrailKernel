@@ -29,9 +29,101 @@ const DIRECTIONS = [
 ];
 
 /**
+ * Interactive Peak Planer demonstration ("Le Raboteur de Sommet").
+ * Shows how averaging 9 cells erases an isolated high peak.
+ */
+function PeakPlanerDemo(): React.JSX.Element {
+  const [isSmoothed, setIsSmoothed] = useState(false);
+
+  // An isolated peak at 220 m surrounded by 8 valley points at 40 m
+  const valleyVal = 40;
+  const initialPeak = 220;
+  const smoothedVal = Math.round((valleyVal * 8 + initialPeak) / 9); // = 60 m
+
+  return (
+    <div className="rounded-2xl border-2 border-sky-300 bg-white p-4 shadow-sm space-y-3">
+      <div className="flex items-center justify-between pb-2 border-b border-sky-100">
+        <h4 className="text-xs font-black uppercase tracking-wider text-[#0284c7] flex items-center gap-1.5">
+          <span>🔨</span>
+          <span>Expérience : Le « Raboteur de Sommet »</span>
+        </h4>
+        <span className="text-[10px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
+          Comprendre la moyenne
+        </span>
+      </div>
+
+      <p className="text-xs text-stone-600 leading-relaxed">
+        Imaginez un pic rocheux pointu qui culmine à <strong>220 m</strong>, entouré de
+        vallées calmes à <strong>40 m</strong>. Regardez ce qui arrive quand la brume fait
+        la moyenne des 9 cases :
+      </p>
+
+      {/* 3x3 Mini Grid Diagram */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
+        <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-sky-50 border border-sky-200 text-center font-mono text-xs">
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+            const isCenter = i === 4;
+            const val = isCenter ? (isSmoothed ? smoothedVal : initialPeak) : valleyVal;
+            return (
+              <div
+                key={i}
+                className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg font-black transition-all duration-500 ${
+                  isCenter
+                    ? isSmoothed
+                      ? 'bg-emerald-600 text-white scale-105 shadow-md'
+                      : 'bg-rose-600 text-white animate-pulse shadow-md'
+                    : 'bg-white text-stone-700 border border-sky-200'
+                }`}
+              >
+                <span className="text-[9px] opacity-75">
+                  {isCenter ? 'Pic' : 'Vallée'}
+                </span>
+                <span>{val}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Calculation breakdown */}
+        <div className="text-xs text-stone-700 space-y-1.5 font-medium max-w-xs text-center sm:text-left">
+          <div className="p-2 rounded-lg bg-stone-50 border border-stone-200 font-mono text-[11px]">
+            {isSmoothed ? (
+              <span className="text-emerald-700 font-bold">
+                (40×8 + 220) ÷ 9 = <strong>60 m</strong> !
+              </span>
+            ) : (
+              <span className="text-stone-500">Pic isolé à 220 m (fort contraste)</span>
+            )}
+          </div>
+          <p className="text-[11px] text-stone-500 leading-tight">
+            {isSmoothed
+              ? '✨ Le pic est raboté de 220 m à 60 m : le relief devient doux et harmonieux !'
+              : 'Cliquez ci-dessous pour déclencher la moyenne des 9 cases :'}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setIsSmoothed((s) => !s)}
+            className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-xs ${
+              isSmoothed
+                ? 'bg-stone-200 hover:bg-stone-300 text-stone-800'
+                : 'bg-sky-600 hover:bg-sky-500 text-white shadow-md'
+            }`}
+          >
+            {isSmoothed
+              ? '↺ Revenir au relief brut (220 m)'
+              : '🌫️ Déclencher la brume (Faire la moyenne)'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Mission Hiver : "Le Grand Brouillard Blanc".
  * Teaches spatial neighborhood averaging and smoothing through the metaphor of alpine fog.
- * Features Clear/Light/Dense presets, fog intensity slider, and a 3x3 neighborhood diagram.
+ * Features Clear/Light/Dense presets, fog intensity slider, and the Peak Planer interactive demo.
  */
 export default function WinterMission({
   onComplete,
@@ -52,7 +144,6 @@ export default function WinterMission({
     const kernel = activePreset === 'light' ? gaussian : boxBlur;
     let current = BASE_WINTER_TERRAIN;
 
-    // Apply 1 to 3 passes based on slider
     for (let p = 0; p < fogPasses; p++) {
       current = convolve2d(current, kernel, { borderMode: 'clamp' });
     }
@@ -81,7 +172,6 @@ export default function WinterMission({
     [testedPresets, onComplete],
   );
 
-  // Read 9 neighborhood values around selected cell
   const neighborhoodValues = useMemo(() => {
     if (!selectedCell) return null;
     return DIRECTIONS.map((dir) => {
@@ -124,12 +214,15 @@ export default function WinterMission({
         <p className="text-xs sm:text-sm text-stone-700 leading-relaxed">
           Dans le blizzard d'altitude, les rochers saillants s'adoucissent sous une nappe
           de brume. Ajustez l'intensité du brouillard et observez comment chaque point{' '}
-          <strong>fait la paix avec ses 8 voisins immédiats</strong> pour créer une vision
-          adoucie et lissée.
+          <strong>fait la paix avec ses 8 voisins immédiats</strong> pour lisser le
+          paysage.
         </p>
       </div>
 
       <TrailBot season="winter" />
+
+      {/* NEW: Interactive Peak Planer Demo */}
+      <PeakPlanerDemo />
 
       {/* Main 2-Column Interface */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
