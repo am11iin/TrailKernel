@@ -1,30 +1,29 @@
 import React from 'react';
-import { T } from '@/data/texts';
+import type { SeasonId } from '@/core/storage';
 
-export interface TrailStage {
-  id: number;
-  title: string;
-  difficulty: string;
-  complete: boolean;
-  unlocked: boolean;
-}
+export type ViewTarget = SeasonId | 'revelation';
 
 interface ProgressTrailProps {
-  stages: TrailStage[];
-  currentId: number;
-  onSelect: (id: number) => void;
+  currentView: ViewTarget;
+  completedSeasons: SeasonId[];
+  isRevelationUnlocked: boolean;
+  onSelect: (target: ViewTarget) => void;
 }
 
-const STAGE_CONFIG: Record<number, { label: string; badge: string; icon: string }> = {
-  1: { label: '1. Lire la carte...', badge: 'LES BASES', icon: '🗺️' },
-  2: { label: '2. La fenêtre 3×3...', badge: 'LE CALCUL', icon: '🔍' },
-  3: { label: '3. Flou, Poids...', badge: 'LES POIDS', icon: '🔎' },
-  4: { label: '4. Détecter r...', badge: 'DÉTECTION', icon: '📐' },
-  5: { label: "5. L'Atelier Lib...", badge: 'EXPÉRIMENTATION', icon: '📜' },
-};
+const SEASONS_LIST: Array<{
+  id: SeasonId;
+  title: string;
+  badge: string;
+  icon: string;
+}> = [
+  { id: 'spring', title: '1. Printemps', badge: 'LA LOUPE', icon: '🌸' },
+  { id: 'summer', title: '2. Été', badge: '0 À 255', icon: '☀️' },
+  { id: 'autumn', title: '3. Automne', badge: 'LES CRÊTES', icon: '🍂' },
+  { id: 'winter', title: '4. Hiver', badge: 'LA BRUME', icon: '❄️' },
+];
 
 /**
- * Detailed Mountain Peak Illustration matching the exact mockup.
+ * Detailed Mountain Peak Illustration matching the rustic alpine theme.
  */
 function MountainGraphic(): React.JSX.Element {
   return (
@@ -38,72 +37,49 @@ function MountainGraphic(): React.JSX.Element {
         className="drop-shadow-sm"
         aria-hidden="true"
       >
-        {/* Foothills green base */}
         <path
           d="M2 56 C 20 48, 45 52, 70 50 C 78 49, 86 52, 88 56 L 88 58 L 2 58 Z"
           fill="#4f883c"
         />
-        <path d="M6 56 C 25 50, 50 53, 75 51 C 82 50, 86 53, 88 56 Z" fill="#3b692c" />
-
-        {/* Left background slope */}
         <polygon points="10,56 28,24 46,56" fill="#8f7e6e" />
         <polygon points="28,24 35,34 28,32 22,35" fill="#ffffff" />
-
-        {/* Right background slope */}
         <polygon points="46,56 65,28 82,56" fill="#7a6c5e" />
         <polygon points="65,28 71,36 65,34 60,37" fill="#ffffff" />
-
-        {/* Main central high peak */}
         <polygon points="18,56 42,10 66,56" fill="#675647" />
-
-        {/* Main peak shaded left facet */}
         <polygon points="18,56 42,10 42,56" fill="#57473a" />
-
-        {/* Snow cap on central summit */}
         <polygon
           points="42,10 52,26 47,24 42,28 36,23 32,27 30,22 42,10"
           fill="#ffffff"
         />
         <polygon points="42,10 42,28 36,23 32,27 30,22" fill="#e2e8f0" />
-
-        {/* Little pine trees on foothills */}
         <path d="M8 55 L11 48 L14 55 Z" fill="#204b19" />
-        <path d="M14 56 L17 49 L20 56 Z" fill="#1b3f15" />
         <path d="M72 55 L75 49 L78 55 Z" fill="#204b19" />
-        <path d="M78 56 L81 50 L84 56 Z" fill="#1b3f15" />
       </svg>
     </div>
   );
 }
 
 /**
- * ProgressTrail matching the exact top navigation stepper from the reference image.
+ * ProgressTrail — Navigation between the 4 Seasons and the locked/unlocked Revelation.
  */
 export default function ProgressTrail({
-  stages,
-  currentId,
+  currentView,
+  completedSeasons,
+  isRevelationUnlocked,
   onSelect,
 }: ProgressTrailProps): React.JSX.Element {
   return (
-    <nav aria-label={T.nav.progress} className="w-full py-2.5">
+    <nav aria-label="Sentier des Saisons" className="w-full py-2.5">
       <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-        {/* Mountain illustration anchor */}
         <MountainGraphic />
 
-        {/* 5 Stages Trail */}
         <ol className="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-          {stages.map((stage, idx) => {
-            const isCurrent = stage.id === currentId;
-            const isLocked = !stage.unlocked;
-            const meta = STAGE_CONFIG[stage.id] ?? {
-              label: stage.title,
-              badge: stage.difficulty,
-              icon: '⛺',
-            };
+          {SEASONS_LIST.map((season, idx) => {
+            const isCurrent = currentView === season.id;
+            const isCompleted = completedSeasons.includes(season.id);
 
             return (
-              <li key={stage.id} className="flex items-center">
-                {/* Dashed trail line between steps */}
+              <li key={season.id} className="flex items-center">
                 {idx > 0 && (
                   <div className="flex items-center px-1 select-none" aria-hidden="true">
                     <span className="border-b-2 border-dashed border-[#b89f82] w-3 sm:w-5 inline-block" />
@@ -112,60 +88,90 @@ export default function ProgressTrail({
 
                 <button
                   type="button"
-                  onClick={() => !isLocked && onSelect(stage.id)}
-                  disabled={isLocked}
+                  onClick={() => onSelect(season.id)}
                   aria-current={isCurrent ? 'step' : undefined}
-                  aria-label={isLocked ? `${stage.title} (verrouillé)` : stage.title}
-                  className={`group relative flex flex-col items-center justify-between rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 transition-all cursor-pointer min-w-[110px] sm:min-w-[130px] h-[68px] ${
-                    isLocked
-                      ? 'bg-[#ece5d8] text-stone-400 border border-stone-300 cursor-not-allowed opacity-60'
-                      : isCurrent
-                        ? 'bg-gradient-to-b from-[#ffeed2] to-[#fedfa6] text-stone-900 border-2 border-orange-500 shadow-md ring-2 ring-orange-300 ring-offset-1 font-bold'
-                        : stage.complete
-                          ? 'bg-gradient-to-b from-[#fbf4e5] to-[#f4e4c9] text-stone-800 border border-[#c9b292] hover:border-orange-400 shadow-xs'
-                          : 'bg-[#fffaf0] text-stone-700 border border-[#dfd2be] hover:border-orange-400 shadow-xs'
+                  className={`group relative flex flex-col items-center justify-between rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 transition-all cursor-pointer min-w-[110px] sm:min-w-[125px] h-[68px] ${
+                    isCurrent
+                      ? 'bg-gradient-to-b from-[#ffeed2] to-[#fedfa6] text-stone-900 border-2 border-orange-500 shadow-md ring-2 ring-orange-300 ring-offset-1 font-bold'
+                      : isCompleted
+                        ? 'bg-gradient-to-b from-[#fbf4e5] to-[#f4e4c9] text-stone-800 border border-[#c9b292] hover:border-orange-400 shadow-xs'
+                        : 'bg-[#fffaf0] text-stone-700 border border-[#dfd2be] hover:border-orange-400 shadow-xs'
                   }`}
                 >
-                  {/* Top-right completed checkmark badge */}
-                  {stage.complete && (
+                  {isCompleted && (
                     <span
                       className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#16a34a] text-white text-[10px] flex items-center justify-center font-black shadow-xs ring-1 ring-white"
-                      title="Étape complétée"
+                      title="Saison accomplie"
                     >
                       ✓
                     </span>
                   )}
 
-                  {/* Icon & Label */}
                   <div className="flex items-center gap-1.5 text-center mt-0.5 w-full justify-center">
-                    <span className="text-sm shrink-0" aria-hidden="true">
-                      {isLocked ? '🔒' : meta.icon}
-                    </span>
+                    <span className="text-sm shrink-0">{season.icon}</span>
                     <span
                       className={`text-[11px] sm:text-xs leading-tight line-clamp-1 ${
-                        isCurrent ? 'font-bold text-stone-950' : 'font-semibold'
+                        isCurrent ? 'font-black text-stone-950' : 'font-semibold'
                       }`}
                     >
-                      {meta.label}
+                      {season.title}
                     </span>
                   </div>
 
-                  {/* Bottom Subtitle Badge */}
                   <span
                     className={`text-[9px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full mt-1 ${
                       isCurrent
                         ? 'bg-orange-500 text-white shadow-xs'
-                        : stage.complete
+                        : isCompleted
                           ? 'bg-[#ded0b6] text-stone-800'
                           : 'bg-stone-200 text-stone-600'
                     }`}
                   >
-                    {meta.badge}
+                    {season.badge}
                   </span>
                 </button>
               </li>
             );
           })}
+
+          {/* Dotted separator to Revelation */}
+          <li className="flex items-center">
+            <div className="flex items-center px-1 select-none" aria-hidden="true">
+              <span className="border-b-2 border-dashed border-[#818cf8] w-3 sm:w-5 inline-block" />
+            </div>
+
+            <button
+              type="button"
+              disabled={!isRevelationUnlocked}
+              onClick={() => isRevelationUnlocked && onSelect('revelation')}
+              className={`group relative flex flex-col items-center justify-between rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 transition-all min-w-[115px] sm:min-w-[135px] h-[68px] ${
+                !isRevelationUnlocked
+                  ? 'bg-stone-200/70 text-stone-400 border border-stone-300 cursor-not-allowed opacity-75'
+                  : currentView === 'revelation'
+                    ? 'bg-gradient-to-b from-[#312e81] to-[#1e1b4b] text-white border-2 border-indigo-400 shadow-xl ring-2 ring-indigo-300 ring-offset-1 font-bold'
+                    : 'bg-gradient-to-b from-[#4338ca] to-[#312e81] text-indigo-100 border border-indigo-400 hover:border-indigo-300 shadow-md cursor-pointer'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-center mt-0.5 w-full justify-center">
+                <span className="text-sm shrink-0">
+                  {!isRevelationUnlocked ? '🔒' : '⚡'}
+                </span>
+                <span className="text-[11px] sm:text-xs leading-tight font-black">
+                  La Révélation
+                </span>
+              </div>
+
+              <span
+                className={`text-[9px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full mt-1 ${
+                  !isRevelationUnlocked
+                    ? 'bg-stone-300 text-stone-600'
+                    : 'bg-indigo-500 text-white shadow-xs'
+                }`}
+              >
+                {!isRevelationUnlocked ? '4 SAISONS REQUISES' : 'DÉBLOQUÉE !'}
+              </span>
+            </button>
+          </li>
         </ol>
       </div>
     </nav>

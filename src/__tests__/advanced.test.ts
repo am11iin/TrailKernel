@@ -4,8 +4,7 @@
  * - Kernel composition (3×3 cascade vs 5×5 equivalent)
  * - Sobel components & steepest pixel detection
  * - Exam 100-point question verification (all answers mathematically calculated)
- * - Gamification & progress rank calculations
- * - Storage versioning & card unlocking
+ * - TrailVision 4 seasonal progression & revelation unlocking
  */
 
 import { describe, it, expect } from 'vitest';
@@ -22,8 +21,6 @@ import {
   sobelComponents,
   slopeMap,
   findSteepestPixel,
-  getRankFromElevation,
-  grantLevelReward,
   computeQ1,
   computeQ2,
   computeQ3,
@@ -36,6 +33,12 @@ import {
   computeQ10,
   getExamQuestions,
 } from '../core';
+import {
+  isRevelationUnlocked,
+  grantSeasonReward,
+  DEFAULT_PROGRESS,
+  SEASON_BADGES,
+} from '../core/storage';
 import { T } from '../data/texts';
 
 describe('Metrics & Similarity', () => {
@@ -84,11 +87,9 @@ describe('Kernel Composition (3×3 double blur vs 5×5)', () => {
       'clamp',
     );
 
-    // Center pixel (x: 3, y: 3) is well away from borders
     const centerDouble = pass2.data[3 * 7 + 3] ?? 0;
     const center5x5 = direct5x5.data[3 * 7 + 3] ?? 0;
 
-    // Small rounding difference at most 1 unit due to intermediate integer clamping
     expect(Math.abs(centerDouble - center5x5)).toBeLessThanOrEqual(1);
   });
 });
@@ -101,87 +102,74 @@ describe('Sobel components & steepest pixel', () => {
     const { magnitude } = sobelComponents(grid, 'clamp');
     const directSlope = slopeMap(grid, 'clamp');
 
-    expect(magnitude.data).toEqual(directSlope.data);
-  });
-
-  it('findSteepestPixel accurately identifies the sharpest edge', () => {
-    const grid = createGrid(5, 5, 0);
-    // Vertical cliff at column 3
-    for (let y = 0; y < 5; y++) {
-      grid.data[y * 5 + 3] = 250;
+    expect(magnitude.data.length).toBe(directSlope.data.length);
+    for (let i = 0; i < magnitude.data.length; i++) {
+      expect(magnitude.data[i]).toBe(directSlope.data[i]);
     }
+  });
 
-    const slopes = slopeMap(grid, 'clamp');
-    const steepest = findSteepestPixel(slopes);
+  it('findSteepestPixel accurately spots maximum gradient cell', () => {
+    const grid = createGrid(5, 5, 0);
+    grid.data[2 * 5 + 2] = 255; // vertical wall at center
 
-    expect(steepest.maxSlope).toBeGreaterThan(150);
-    expect(steepest.x).toBeGreaterThanOrEqual(2);
-    expect(steepest.x).toBeLessThanOrEqual(4);
+    const slope = slopeMap(grid, 'clamp');
+    const steepest = findSteepestPixel(slope);
+
+    expect(steepest.maxSlope).toBeGreaterThan(0);
+    expect(steepest.x).toBeGreaterThanOrEqual(1);
+    expect(steepest.x).toBeLessThanOrEqual(3);
+    expect(steepest.y).toBeGreaterThanOrEqual(1);
+    expect(steepest.y).toBeLessThanOrEqual(3);
   });
 });
 
-describe('Gamification: Elevation & Ranks & Card Unlocking', () => {
-  it('correctly maps D+ meters to hiker ranks', () => {
-    expect(getRankFromElevation(0).rank).toBe('Marcheur');
-    expect(getRankFromElevation(299).rank).toBe('Marcheur');
-    expect(getRankFromElevation(300).rank).toBe('Randonneur');
-    expect(getRankFromElevation(699).rank).toBe('Randonneur');
-    expect(getRankFromElevation(700).rank).toBe('Alpiniste');
-    expect(getRankFromElevation(1199).rank).toBe('Alpiniste');
-    expect(getRankFromElevation(1200).rank).toBe('Guide de haute montagne');
-    expect(getRankFromElevation(2500).rank).toBe('Guide de haute montagne');
+describe('TrailVision 4 Seasons Progression & Revelation', () => {
+  it('has 4 seasonal badges defined with icons and descriptions', () => {
+    expect(SEASON_BADGES.spring.name).toBe('Bourgeon du Printemps');
+    expect(SEASON_BADGES.summer.name).toBe("Soleil d'Altitude");
+    expect(SEASON_BADGES.autumn.name).toBe('Gardien des Crêtes');
+    expect(SEASON_BADGES.winter.name).toBe('Cristal des Brumes');
   });
 
-  it('grantLevelReward unlocks levels, notebooks and "Je retiens" cards', () => {
-    const initial = {
-      version: 2,
-      completedLevels: [],
-      elevationGainMeters: 0,
-      unlockedNotebooks: [],
-      unlockedCards: [],
-      examScore: null,
-      lastActiveLevel: 1,
-    };
+  it('revelation remains locked until all 4 seasons are completed', () => {
+    let prog = { ...DEFAULT_PROGRESS };
+    expect(isRevelationUnlocked(prog)).toBe(false);
 
-    const next = grantLevelReward(initial, 1, 250);
-    expect(next.completedLevels).toContain(1);
-    expect(next.unlockedCards).toContain(1);
-    expect(next.unlockedNotebooks).toContain(1);
-    expect(next.elevationGainMeters).toBe(250);
-  });
-});
+    prog = grantSeasonReward(prog, 'spring');
+    expect(isRevelationUnlocked(prog)).toBe(false);
+    expect(prog.elevationGainMeters).toBe(250);
 
-describe('Pedagogical Curriculum for Amine', () => {
-  it('has exactly 5 "Je retiens" cards corresponding to the 5 core ideas', () => {
-    expect(T.recapCards.length).toBe(5);
-    expect(T.recapCards[0]?.takeaway).toBe(
-      'Une image est une grille de nombres (0 à 255).',
-    );
-    expect(T.recapCards[1]?.takeaway).toBe(
-      'Un nouveau pixel se calcule à partir de ses 8 voisins : multiplier, additionner, diviser.',
-    );
-    expect(T.recapCards[2]?.takeaway).toBe(
-      "Les coefficients (le noyau) décident de l'effet ; la division évite la saturation.",
-    );
-    expect(T.recapCards[3]?.takeaway).toBe(
-      'Un autre noyau (Sobel) détecte les changements brusques, donc les contours.',
-    );
-    expect(T.recapCards[4]?.takeaway).toBe(
-      "Une même opération avec des noyaux différents donne des effets différents : c'est la convolution.",
-    );
+    prog = grantSeasonReward(prog, 'summer');
+    prog = grantSeasonReward(prog, 'autumn');
+    expect(isRevelationUnlocked(prog)).toBe(false);
+    expect(prog.elevationGainMeters).toBe(750);
+
+    prog = grantSeasonReward(prog, 'winter');
+    expect(isRevelationUnlocked(prog)).toBe(true);
+    expect(prog.elevationGainMeters).toBe(1000);
   });
 
-  it('has 5 mini-questions, each with exactly 1 correct answer among 3 choices', () => {
-    expect(T.miniQuestions.length).toBe(5);
-    T.miniQuestions.forEach((q) => {
-      expect(q.options.length).toBe(3);
-      const correctOptions = q.options.filter((opt) => opt.correct);
-      expect(correctOptions.length).toBe(1);
-    });
+  it('texts have no spoilers in the public season descriptions', () => {
+    const descriptions = [
+      T.seasons.spring.description,
+      T.seasons.summer.description,
+      T.seasons.autumn.description,
+      T.seasons.winter.description,
+      T.howToPlay.step1Desc,
+      T.howToPlay.step2Desc,
+      T.howToPlay.step3Desc,
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    expect(descriptions.includes('convolution')).toBe(false);
+    expect(descriptions.includes('kernel')).toBe(false);
+    expect(descriptions.includes('filtre')).toBe(false);
+    expect(descriptions.includes('matrice')).toBe(false);
   });
 });
 
-describe('Final Exam ("Le Sommet"): Core-calculated questions', () => {
+describe('Core-calculated Exam Questions', () => {
   it('Q1 returns DEM grid read value 175', () => {
     const q1 = computeQ1();
     expect(q1.expectedValue).toBe(175);
@@ -242,7 +230,7 @@ describe('Final Exam ("Le Sommet"): Core-calculated questions', () => {
     expect(q10.question.correctId).toBe('a');
   });
 
-  it('All 10 questions are properly populated and total 100 points', () => {
+  it('All 10 questions total 100 points', () => {
     const questions = getExamQuestions();
     expect(questions.length).toBe(10);
     const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);

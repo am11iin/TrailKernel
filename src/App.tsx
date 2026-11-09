@@ -1,115 +1,131 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { T } from '@/data/texts';
-import ProgressTrail, { type TrailStage } from '@/components/ProgressTrail';
+import ProgressTrail, { type ViewTarget } from '@/components/ProgressTrail';
 import CarnetModal from '@/components/CarnetModal';
 import HomeHero from '@/components/HomeHero';
-import JeRetiensCard from '@/components/JeRetiensCard';
-import FinalRecapScreen from '@/components/FinalRecapScreen';
+import SpringMission from '@/features/seasons/SpringMission';
+import SummerMission from '@/features/seasons/SummerMission';
+import AutumnMission from '@/features/seasons/AutumnMission';
+import WinterMission from '@/features/seasons/WinterMission';
+import RevelationScreen from '@/features/revelation/RevelationScreen';
 import { useSound } from '@/hooks/useSound';
-
-import Level1 from '@/features/level1/Level1';
-import Level3 from '@/features/level3/Level3';
-import Level4 from '@/features/level4/Level4';
-import Level7 from '@/features/level7/Level7';
-import Level6 from '@/features/level6/Level6';
-
 import {
   loadProgress,
   resetProgress,
-  grantLevelReward,
-  getRankFromElevation,
-  type TrailKernelProgress,
+  grantSeasonReward,
+  isRevelationUnlocked,
+  type SeasonId,
+  type TrailVisionProgress,
 } from '@/core/storage';
 
-const ELEVATION_PER_LEVEL = 250;
+const SEASON_ORDER: SeasonId[] = ['spring', 'summer', 'autumn', 'winter'];
 
-const STAGE_SUBTITLES: Record<number, string> = {
-  1: 'LES BASES',
-  2: 'LE CALCUL',
-  3: 'LES POIDS',
-  4: 'DÉTECTION',
-  5: 'EXPÉRIMENTATION',
-};
+/**
+ * Ambient floating particles reflecting the active alpine season.
+ */
+function AmbientParticles({ season }: { season: ViewTarget }): React.JSX.Element {
+  const icon =
+    season === 'spring'
+      ? '🌸'
+      : season === 'summer'
+        ? '✨'
+        : season === 'autumn'
+          ? '🍂'
+          : season === 'winter'
+            ? '❄️'
+            : '⚡';
+
+  return (
+    <div
+      className="fixed inset-0 pointer-events-none overflow-hidden z-0"
+      aria-hidden="true"
+    >
+      <span
+        className="floating-particle text-sm"
+        style={{ left: '8%', bottom: '10%', animationDelay: '0s' }}
+      >
+        {icon}
+      </span>
+      <span
+        className="floating-particle text-base"
+        style={{ left: '22%', bottom: '25%', animationDelay: '2.5s' }}
+      >
+        {icon}
+      </span>
+      <span
+        className="floating-particle text-sm"
+        style={{ left: '78%', bottom: '15%', animationDelay: '1.2s' }}
+      >
+        {icon}
+      </span>
+      <span
+        className="floating-particle text-lg"
+        style={{ left: '90%', bottom: '30%', animationDelay: '3.8s' }}
+      >
+        {icon}
+      </span>
+    </div>
+  );
+}
 
 export default function App(): React.JSX.Element {
-  const [progress, setProgress] = useState<TrailKernelProgress>(() => loadProgress());
-  const [currentLevelId, setCurrentLevelId] = useState<number>(1);
-  const [view, setView] = useState<'home' | 'trail'>('trail');
+  const [progress, setProgress] = useState<TrailVisionProgress>(() => loadProgress());
+  const [activeSeason, setActiveSeason] = useState<SeasonId>('spring');
+  const [view, setView] = useState<'home' | 'trail' | 'revelation'>('trail');
   const [isCarnetOpen, setIsCarnetOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showHowToPlay, setShowHowToPlay] = useState(true);
-  const [answeredMiniQuestions, setAnsweredMiniQuestions] = useState<
-    Record<number, boolean>
-  >({});
+  const [showGuide, setShowGuide] = useState(true);
 
   const { enabled: soundEnabled, toggle: toggleSound } = useSound();
 
-  // Sync state if initial storage loads
   useEffect(() => {
-    if (
-      progress.lastActiveLevel &&
-      progress.lastActiveLevel >= 1 &&
-      progress.lastActiveLevel <= T.levels.length
-    ) {
-      setCurrentLevelId(progress.lastActiveLevel);
+    if (progress.activeSeason) {
+      setActiveSeason(progress.activeSeason);
     }
-  }, [progress.lastActiveLevel]);
+  }, [progress.activeSeason]);
 
-  const handleLevelComplete = (id: number) => {
-    setProgress((prev) => grantLevelReward(prev, id, ELEVATION_PER_LEVEL));
+  const handleSeasonComplete = (season: SeasonId) => {
+    setProgress((prev) => grantSeasonReward(prev, season));
   };
 
-  const handleStartFromHome = (targetLevelId: number) => {
-    const validId = Math.min(Math.max(1, targetLevelId), T.levels.length);
-    setCurrentLevelId(validId);
+  const handleSelectSeason = (season: SeasonId) => {
+    setActiveSeason(season);
     setView('trail');
+  };
+
+  const handleSelectRevelation = () => {
+    if (isRevelationUnlocked(progress)) {
+      setView('revelation');
+    }
   };
 
   const handleReset = () => {
     const fresh = resetProgress();
     setProgress(fresh);
-    setCurrentLevelId(1);
-    setAnsweredMiniQuestions({});
+    setActiveSeason('spring');
     setView('home');
     setShowResetConfirm(false);
   };
 
-  const stages: TrailStage[] = useMemo(() => {
-    return T.levels.map((lvl, index) => {
-      const isComplete = progress.completedLevels.includes(lvl.id);
-      const isUnlocked =
-        index === 0 || progress.completedLevels.includes(T.levels[index - 1]?.id ?? 0);
+  const revelationReady = isRevelationUnlocked(progress);
+  const isCurrentSeasonCompleted = progress.completedSeasons.includes(activeSeason);
 
-      return {
-        id: lvl.id,
-        title: lvl.title,
-        difficulty: lvl.difficulty,
-        complete: isComplete,
-        unlocked: isUnlocked,
-      };
-    });
-  }, [progress.completedLevels]);
+  // Determine next season
+  const currentIndex = SEASON_ORDER.indexOf(activeSeason);
+  const nextSeason =
+    currentIndex < SEASON_ORDER.length - 1 ? SEASON_ORDER[currentIndex + 1] : null;
 
-  const currentLevelData = T.levels.find((lvl) => lvl.id === currentLevelId);
-  const isCurrentComplete = progress.completedLevels.includes(currentLevelId);
-  const isQuestionAnswered = Boolean(
-    answeredMiniQuestions[currentLevelId] ||
-    (isCurrentComplete && progress.completedLevels.includes(currentLevelId + 1)),
-  );
-
-  const nextLevelId = currentLevelId + 1;
-  const hasNext = nextLevelId <= T.levels.length;
-  const canGoNext = hasNext && isCurrentComplete && isQuestionAnswered;
-
-  const currentRecapCard = T.recapCards.find((c) => c.levelId === currentLevelId);
-  const currentMiniQuestion = T.miniQuestions.find((q) => q.levelId === currentLevelId);
-
-  const rankInfo = getRankFromElevation(progress.elevationGainMeters);
-  const stageSubtitle =
-    STAGE_SUBTITLES[currentLevelId] ?? currentLevelData?.difficulty ?? 'ÉTAPE';
+  const currentViewTarget: ViewTarget =
+    view === 'revelation' ? 'revelation' : activeSeason;
 
   return (
-    <div className="min-h-screen bg-topo-mountain-theme flex flex-col text-stone-900 font-sans selection:bg-orange-200">
+    <div
+      className={`min-h-screen bg-topo-mountain-theme flex flex-col text-stone-900 font-sans selection:bg-orange-200 theme-${
+        view === 'revelation' ? 'revelation' : activeSeason
+      }`}
+    >
+      <AmbientParticles season={currentViewTarget} />
+
       {/* Top Alpine Header (Dark timber look) */}
       <header className="bg-[#1f1a16] text-stone-100 border-b-2 border-[#472c18] shadow-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
@@ -119,7 +135,7 @@ export default function App(): React.JSX.Element {
               type="button"
               onClick={() => setView('home')}
               className="text-2xl hover:scale-110 transition-transform cursor-pointer"
-              aria-label="Retour à l'accueil"
+              aria-label="Retour au camp de base"
             >
               🏔️
             </button>
@@ -144,39 +160,39 @@ export default function App(): React.JSX.Element {
             {/* Elevation gain badge */}
             <div
               className="flex items-center gap-1.5 bg-[#2c221a] px-3 py-1.5 rounded-lg border border-[#4d3828] text-stone-200 shadow-xs"
-              title="Dénivelé positif accumulé (XP)"
+              title="Dénivelé positif accumulé"
             >
               <span className="text-orange-400 font-bold">▲</span>
               <span className="font-bold text-white">{progress.elevationGainMeters}</span>
               <span className="text-stone-400 text-[10px]">m D+</span>
             </div>
 
-            {/* Rank badge */}
+            {/* Badges count */}
             <div
               className="hidden md:flex items-center gap-1.5 bg-[#2c221a] px-3 py-1.5 rounded-lg border border-[#4d3828] text-stone-300 font-sans font-semibold shadow-xs"
-              title="Votre rang d'alpiniste"
+              title="Badges de saisons débloqués"
             >
-              <span>{rankInfo.badge}</span>
+              <span>🏅 {progress.completedSeasons.length} / 4 Badges</span>
             </div>
 
-            {/* Carnet de Rando trigger */}
+            {/* Carnet d'expédition trigger */}
             <button
               type="button"
               onClick={() => setIsCarnetOpen(true)}
               className="px-3 py-1.5 rounded-lg font-sans font-semibold text-xs bg-[#2c221a] hover:bg-[#3d2e23] text-stone-200 border border-[#4d3828] transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-              aria-label="Ouvrir le carnet de rando"
+              aria-label="Ouvrir le carnet d'expédition"
             >
               <span>📓</span>
-              <span className="hidden sm:inline">{T.nav.notebook}</span>
+              <span className="hidden sm:inline">Carnet</span>
             </button>
 
-            {/* Home / Trail Toggle Button */}
+            {/* Home / Seasons Toggle */}
             <button
               type="button"
               onClick={() => setView((v) => (v === 'home' ? 'trail' : 'home'))}
               className="px-3 py-1.5 rounded-lg font-sans font-bold text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors cursor-pointer shadow-xs"
             >
-              {view === 'home' ? 'Sentier →' : 'Accueil'}
+              {view === 'home' ? 'Sentier →' : 'Camp de Base'}
             </button>
 
             {/* Audio Toggle */}
@@ -189,7 +205,7 @@ export default function App(): React.JSX.Element {
                   : 'bg-[#2c221a] border-[#4d3828] text-stone-400 hover:text-stone-200'
               }`}
               title={soundEnabled ? 'Désactiver le son' : 'Activer le son'}
-              aria-label="Contrôle du son"
+              aria-label="Contrôle du son altimétrique"
             >
               {soundEnabled ? '🔊' : '🔇'}
             </button>
@@ -199,8 +215,8 @@ export default function App(): React.JSX.Element {
               type="button"
               onClick={() => setShowResetConfirm(true)}
               className="p-1.5 rounded-lg text-stone-400 hover:text-red-400 hover:bg-stone-800 transition-colors cursor-pointer"
-              title="Réinitialiser la progression"
-              aria-label="Réinitialiser la progression"
+              title="Réinitialiser l'expédition"
+              aria-label="Réinitialiser l'expédition"
             >
               🔄
             </button>
@@ -209,42 +225,47 @@ export default function App(): React.JSX.Element {
       </header>
 
       {/* Progress Trail Stepper Bar */}
-      {view === 'trail' && (
-        <div className="bg-[#fcf8f0]/95 border-b border-[#e2d5bf] shadow-xs backdrop-blur-xs">
+      {view !== 'home' && (
+        <div className="bg-[#fcf8f0]/95 border-b border-[#e2d5bf] shadow-xs backdrop-blur-xs relative z-10">
           <div className="max-w-6xl mx-auto px-2">
             <ProgressTrail
-              stages={stages}
-              currentId={currentLevelId}
-              onSelect={(id) => setCurrentLevelId(id)}
+              currentView={currentViewTarget}
+              completedSeasons={progress.completedSeasons}
+              isRevelationUnlocked={revelationReady}
+              onSelect={(target) => {
+                if (target === 'revelation') {
+                  setView('revelation');
+                } else {
+                  handleSelectSeason(target);
+                }
+              }}
             />
           </div>
         </div>
       )}
 
       {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto px-4 py-6 w-full flex-1">
+      <main className="max-w-5xl mx-auto px-4 py-6 w-full flex-1 relative z-10">
         {/* Onboarding Guide Box (Authentic Carved Wood Park Signboard) */}
-        {showHowToPlay && (
+        {showGuide && view !== 'revelation' && (
           <div className="mb-6 wood-board-panel p-4 sm:p-5 text-white relative shadow-lg">
-            {/* 4 Corner Screw Rivets */}
             <span className="screw-rivet-gold absolute top-2.5 left-2.5" />
             <span className="screw-rivet-gold absolute top-2.5 right-2.5" />
             <span className="screw-rivet-gold absolute bottom-2.5 left-2.5" />
             <span className="screw-rivet-gold absolute bottom-2.5 right-2.5" />
 
-            {/* Top header row */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#a86e3f]/60">
               <div className="flex items-center gap-2 pl-2">
                 <span className="text-base text-amber-300" aria-hidden="true">
-                  ⚠️
+                  🧭
                 </span>
                 <span className="text-xs font-black uppercase tracking-wider text-amber-200">
-                  {T.howToPlay.badge}
+                  {T.howToPlay.badge} — 4 Saisons, 4 Mystères
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => setShowHowToPlay(false)}
+                onClick={() => setShowGuide(false)}
                 className="text-xs text-amber-200 hover:text-white font-bold px-2.5 py-1 rounded cursor-pointer transition-colors"
                 title="Masquer le guide"
               >
@@ -252,7 +273,6 @@ export default function App(): React.JSX.Element {
               </button>
             </div>
 
-            {/* 3 Parchment Columns */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs text-stone-900">
               <div className="parchment-box p-3.5 rounded-xl space-y-1.5 shadow-xs">
                 <p className="font-black text-[#7a4115] text-[13px]">
@@ -287,154 +307,91 @@ export default function App(): React.JSX.Element {
         {view === 'home' ? (
           <HomeHero
             progress={progress}
-            onStart={handleStartFromHome}
+            onSelectSeason={handleSelectSeason}
+            onSelectRevelation={handleSelectRevelation}
+            onOpenNotebook={() => setIsCarnetOpen(true)}
+          />
+        ) : view === 'revelation' ? (
+          <RevelationScreen
+            onRestart={handleReset}
             onOpenNotebook={() => setIsCarnetOpen(true)}
           />
         ) : (
-          currentLevelData && (
-            <section className="bg-white rounded-3xl border border-[#ded0b4] shadow-md p-5 sm:p-8 space-y-6">
-              {/* Level Header */}
-              <div className="space-y-3 pb-4 border-b border-stone-200">
-                {/* Step badges row */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-block text-[11px] font-black uppercase tracking-wider text-orange-800 bg-orange-100 px-3 py-1 rounded-full border border-orange-200">
-                      ÉTAPE {currentLevelData.id} / {T.levels.length} — {stageSubtitle}
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-full border border-stone-200">
-                      &lt; {ELEVATION_PER_LEVEL} m D+
-                    </span>
-                  </div>
+          <section className="bg-white rounded-3xl border border-[#ded0b4] shadow-md p-5 sm:p-8 space-y-6">
+            {/* Active Season Interactive Mission */}
+            {activeSeason === 'spring' && (
+              <SpringMission
+                onComplete={() => handleSeasonComplete('spring')}
+                isCompleted={isCurrentSeasonCompleted}
+              />
+            )}
+            {activeSeason === 'summer' && (
+              <SummerMission
+                onComplete={() => handleSeasonComplete('summer')}
+                isCompleted={isCurrentSeasonCompleted}
+              />
+            )}
+            {activeSeason === 'autumn' && (
+              <AutumnMission
+                onComplete={() => handleSeasonComplete('autumn')}
+                isCompleted={isCurrentSeasonCompleted}
+              />
+            )}
+            {activeSeason === 'winter' && (
+              <WinterMission
+                onComplete={() => handleSeasonComplete('winter')}
+                isCompleted={isCurrentSeasonCompleted}
+              />
+            )}
 
-                  {isCurrentComplete && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-                      <span>✓</span>
-                      <span>Étape validée</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Title & Objective */}
-                <h2 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight leading-snug">
-                  {currentLevelData.title}
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-600 font-medium leading-relaxed">
-                  {currentLevelData.objective}
-                </p>
-
-                {/* Mission Ribbon Banner (Outdoor wooden banner with stopwatch & binoculars) */}
-                <div className="mission-ribbon-tag mt-3 p-3 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2.5">
-                  <span className="text-base shrink-0" aria-hidden="true">
-                    ⏱️
+            {/* Bottom Navigation Buttons */}
+            <div className="pt-6 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs font-semibold text-stone-600">
+                {isCurrentSeasonCompleted ? (
+                  <span className="text-emerald-800 font-extrabold flex items-center gap-1.5">
+                    <span>✓</span>
+                    <span>Mission de saison accomplie ! Badge obtenu.</span>
                   </span>
-                  <span className="tracking-wide flex-1">
-                    VOTRE MISSION : {currentLevelData.instructions}
-                  </span>
-                  <span className="text-base shrink-0" aria-hidden="true">
-                    🔭
-                  </span>
-                </div>
-              </div>
-
-              {/* Laurel Success Banner */}
-              {isCurrentComplete && currentLevelData.successMessage && (
-                <div className="success-laurel-banner rounded-2xl p-4 text-xs sm:text-sm font-semibold text-emerald-950 flex items-center gap-3">
-                  <span className="text-2xl shrink-0" role="img" aria-label="Laurier">
-                    🌿
-                  </span>
-                  <div className="flex-1">
-                    <strong>Objectif atteint ! Bravo !</strong>{' '}
-                    {currentLevelData.successMessage}
-                  </div>
-                  <span className="text-2xl shrink-0" role="img" aria-hidden="true">
-                    ⭐
-                  </span>
-                </div>
-              )}
-
-              {/* Active Level Feature Component */}
-              <div className="py-2">
-                {currentLevelId === 1 && (
-                  <Level1 onComplete={() => handleLevelComplete(1)} />
-                )}
-                {currentLevelId === 2 && (
-                  <Level3 onComplete={() => handleLevelComplete(2)} />
-                )}
-                {currentLevelId === 3 && (
-                  <Level4 onComplete={() => handleLevelComplete(3)} />
-                )}
-                {currentLevelId === 4 && (
-                  <Level7 onComplete={() => handleLevelComplete(4)} />
-                )}
-                {currentLevelId === 5 && (
-                  <Level6 onComplete={() => handleLevelComplete(5)} />
+                ) : (
+                  <span>Accomplissez l'objectif pour obtenir le badge saisonnier.</span>
                 )}
               </div>
 
-              {/* "Je retiens" Card + Mini Question */}
-              {isCurrentComplete && currentRecapCard && currentMiniQuestion && (
-                <JeRetiensCard
-                  card={currentRecapCard}
-                  miniQuestion={currentMiniQuestion}
-                  isQuestionAnswered={isQuestionAnswered}
-                  onQuestionAnswered={() =>
-                    setAnsweredMiniQuestions((prev) => ({
-                      ...prev,
-                      [currentLevelId]: true,
-                    }))
-                  }
-                />
-              )}
-
-              {/* Final Summary Screen for Level 5 ("Ce que tu sais maintenant") */}
-              {currentLevelId === 5 && isCurrentComplete && isQuestionAnswered && (
-                <FinalRecapScreen
-                  onOpenCarnet={() => setIsCarnetOpen(true)}
-                  onReplayLevel={(lvl) => setCurrentLevelId(lvl)}
-                />
-              )}
-
-              {/* Next Level navigation button */}
-              {hasNext && isCurrentComplete && (
-                <div className="pt-6 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  {!isQuestionAnswered ? (
-                    <p className="text-xs text-amber-900 font-bold bg-amber-100/90 px-3.5 py-2 rounded-xl border border-amber-300">
-                      ⚠️ Répondez à la mini-question ci-dessus pour débloquer l'étape
-                      suivante !
-                    </p>
-                  ) : (
-                    <span className="text-xs text-emerald-800 font-extrabold flex items-center gap-1.5">
-                      <span>✓</span>
-                      <span>Idée validée, en route pour le refuge suivant !</span>
-                    </span>
-                  )}
-
+              <div className="flex items-center gap-3">
+                {nextSeason ? (
                   <button
                     type="button"
-                    disabled={!canGoNext}
-                    onClick={() => setCurrentLevelId(nextLevelId)}
-                    className="w-full sm:w-auto px-7 py-3 rounded-xl font-black text-sm bg-orange-600 hover:bg-orange-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 transform active:scale-95 ml-auto"
+                    onClick={() => handleSelectSeason(nextSeason)}
+                    className="px-6 py-3 rounded-xl font-black text-xs sm:text-sm bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all cursor-pointer flex items-center gap-2 transform active:scale-95"
                   >
-                    <span>Passer à l'étape suivante →</span>
+                    <span>Saison suivante ({T.seasons[nextSeason].title}) →</span>
                   </button>
-                </div>
-              )}
-            </section>
-          )
+                ) : revelationReady ? (
+                  <button
+                    type="button"
+                    onClick={handleSelectRevelation}
+                    className="px-7 py-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-xl transition-all cursor-pointer flex items-center gap-2 transform active:scale-95 animate-pulse"
+                  >
+                    <span>⚡ Découvrir la Révélation Finale →</span>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </section>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-5 px-4 text-xs text-stone-600 border-t border-[#ded0b4] bg-[#fbf7ee]">
+      <footer className="text-center py-5 px-4 text-xs text-stone-600 border-t border-[#ded0b4] bg-[#fbf7ee] relative z-10">
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          <span>TrailKernel — L'art de la convolution en haute montagne</span>
+          <span>TrailVision — Les 4 saisons de haute montagne</span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setIsCarnetOpen(true)}
               className="text-stone-700 hover:text-stone-900 underline font-medium cursor-pointer"
             >
-              Carnet de rando
+              Carnet d'expédition
             </button>
             <span>•</span>
             <button
@@ -442,18 +399,18 @@ export default function App(): React.JSX.Element {
               onClick={() => setView('home')}
               className="text-stone-700 hover:text-stone-900 underline font-medium cursor-pointer"
             >
-              Accueil
+              Camp de Base
             </button>
           </div>
         </div>
       </footer>
 
-      {/* Carnet de Rando Modal */}
+      {/* Carnet Modal */}
       <CarnetModal
         isOpen={isCarnetOpen}
         onClose={() => setIsCarnetOpen(false)}
-        unlockedLevelIds={progress.unlockedNotebooks}
-        unlockedCardIds={progress.unlockedCards}
+        completedSeasons={progress.completedSeasons}
+        isRevelationUnlocked={revelationReady}
       />
 
       {/* Reset Confirmation Modal */}
@@ -465,11 +422,11 @@ export default function App(): React.JSX.Element {
         >
           <div className="bg-white rounded-2xl border border-stone-300 p-6 max-w-sm w-full space-y-4 shadow-xl">
             <h3 className="font-bold text-base text-stone-900">
-              Réinitialiser l'ascension ?
+              Réinitialiser l'expédition ?
             </h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Toutes les étapes franchies, les cartes retenues et le dénivelé accumulé
-              seront remis à zéro.
+              Tous vos badges saisonniers, votre dénivelé accumulé et l'accès à la
+              Révélation seront remis à zéro.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button

@@ -1,198 +1,225 @@
 /**
- * Typed LocalStorage persistence for TrailKernel gamification and progress.
- * Includes schema versioning, fault-tolerant try/catch, and reset controls.
+ * Typed LocalStorage persistence for TrailVision.
+ * Tracks 4 seasonal missions, unlocked badges, elevation gain, and Revelation access.
  */
 
-export const STORAGE_VERSION = 2;
-export const STORAGE_KEY = 'trailkernel_progression_v2';
+export const STORAGE_VERSION = 3;
+export const STORAGE_KEY = 'trailvision_progression_v3';
+export const LEGACY_STORAGE_KEY_V2 = 'trailkernel_progression_v2';
 export const LEGACY_STORAGE_KEY_V1 = 'trailkernel_progression_v1';
 
-export type HikerRank =
-  'Marcheur' | 'Randonneur' | 'Alpiniste' | 'Guide de haute montagne';
+export type SeasonId = 'spring' | 'summer' | 'autumn' | 'winter';
 
-export interface TrailKernelProgress {
-  version: number;
-  completedLevels: number[];
-  elevationGainMeters: number; // D+ in meters (XP)
-  unlockedNotebooks: number[];
-  unlockedCards: number[]; // IDs of unlocked "Je retiens" pedagogical cards (1 to 5)
-  examScore: number | null;
-  lastActiveLevel: number;
+export interface SeasonBadge {
+  id: SeasonId;
+  name: string;
+  icon: string;
+  subtitle: string;
+  unlockedAt?: string;
 }
 
-export const DEFAULT_PROGRESS: TrailKernelProgress = {
-  version: STORAGE_VERSION,
-  completedLevels: [],
-  elevationGainMeters: 0,
-  unlockedNotebooks: [],
-  unlockedCards: [],
-  examScore: null,
-  lastActiveLevel: 1,
+export const SEASON_BADGES: Record<SeasonId, SeasonBadge> = {
+  spring: {
+    id: 'spring',
+    name: 'Bourgeon du Printemps',
+    icon: '🌸',
+    subtitle: 'Alpages explorés & fleurs rares débusquées à la loupe',
+  },
+  summer: {
+    id: 'summer',
+    name: "Soleil d'Altitude",
+    icon: '☀️',
+    subtitle: 'Cycle solaire & mesure des 256 nuances du relief',
+  },
+  autumn: {
+    id: 'autumn',
+    name: 'Gardien des Crêtes',
+    icon: '🍂',
+    subtitle: 'Arêtes rocheuses & lecture de carte topo domptées',
+  },
+  winter: {
+    id: 'winter',
+    name: 'Cristal des Brumes',
+    icon: '❄️',
+    subtitle: 'Vision perçante à travers le grand brouillard blanc',
+  },
 };
 
-/**
- * Determine hiker rank based on accumulated positive elevation gain (D+).
- */
-export function getRankFromElevation(dPlus: number): {
-  rank: HikerRank;
-  badge: string;
-  nextThreshold: number | null;
-} {
-  if (dPlus >= 1200) {
-    return {
-      rank: 'Guide de haute montagne',
-      badge: '🎖️ Guide Suprême',
-      nextThreshold: null,
-    };
-  }
-  if (dPlus >= 700) {
-    return { rank: 'Alpiniste', badge: '🧗 Alpiniste Chevronné', nextThreshold: 1200 };
-  }
-  if (dPlus >= 300) {
-    return { rank: 'Randonneur', badge: '🥾 Randonneur Aguerri', nextThreshold: 700 };
-  }
-  return { rank: 'Marcheur', badge: '🌲 Marcheur Initié', nextThreshold: 300 };
+export interface TrailVisionProgress {
+  version: number;
+  completedSeasons: SeasonId[];
+  elevationGainMeters: number;
+  activeSeason: SeasonId;
+  revelationViewed: boolean;
+  trailbotMinimized: boolean;
+  // Backward compatibility fields
+  completedLevels?: number[];
+  unlockedCards?: number[];
+  unlockedNotebooks?: number[];
 }
 
-/**
- * Load progress from localStorage with graceful migration from v1.
- */
-export function loadProgress(): TrailKernelProgress {
+export const DEFAULT_PROGRESS: TrailVisionProgress = {
+  version: STORAGE_VERSION,
+  completedSeasons: [],
+  elevationGainMeters: 0,
+  activeSeason: 'spring',
+  revelationViewed: false,
+  trailbotMinimized: false,
+};
+
+export function isRevelationUnlocked(progress: TrailVisionProgress): boolean {
+  return (
+    progress.completedSeasons.includes('spring') &&
+    progress.completedSeasons.includes('summer') &&
+    progress.completedSeasons.includes('autumn') &&
+    progress.completedSeasons.includes('winter')
+  );
+}
+
+export function loadProgress(): TrailVisionProgress {
   if (typeof window === 'undefined' || !window.localStorage) {
     return { ...DEFAULT_PROGRESS };
   }
 
   try {
-    // 1. Try reading current v2 storage
-    const rawV2 = window.localStorage.getItem(STORAGE_KEY);
-    if (rawV2) {
-      const parsed = JSON.parse(rawV2) as Partial<TrailKernelProgress>;
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<TrailVisionProgress>;
       if (parsed.version === STORAGE_VERSION) {
         return {
           version: STORAGE_VERSION,
-          completedLevels: Array.isArray(parsed.completedLevels)
-            ? parsed.completedLevels
+          completedSeasons: Array.isArray(parsed.completedSeasons)
+            ? (parsed.completedSeasons.filter((s) =>
+                ['spring', 'summer', 'autumn', 'winter'].includes(s),
+              ) as SeasonId[])
             : [],
           elevationGainMeters:
             typeof parsed.elevationGainMeters === 'number'
               ? parsed.elevationGainMeters
               : 0,
-          unlockedNotebooks: Array.isArray(parsed.unlockedNotebooks)
-            ? parsed.unlockedNotebooks
-            : [],
-          unlockedCards: Array.isArray(parsed.unlockedCards)
-            ? parsed.unlockedCards
-            : Array.isArray(parsed.completedLevels)
-              ? parsed.completedLevels
-              : [],
-          examScore: typeof parsed.examScore === 'number' ? parsed.examScore : null,
-          lastActiveLevel:
-            typeof parsed.lastActiveLevel === 'number' ? parsed.lastActiveLevel : 1,
+          activeSeason:
+            parsed.activeSeason &&
+            ['spring', 'summer', 'autumn', 'winter'].includes(parsed.activeSeason)
+              ? parsed.activeSeason
+              : 'spring',
+          revelationViewed: Boolean(parsed.revelationViewed),
+          trailbotMinimized: Boolean(parsed.trailbotMinimized),
         };
       }
     }
 
-    // 2. Fallback: migrate from legacy v1 storage if available
-    const rawV1 = window.localStorage.getItem(LEGACY_STORAGE_KEY_V1);
-    if (rawV1) {
-      const parsedV1 = JSON.parse(rawV1) as Record<string, unknown>;
-      const completed = Array.isArray(parsedV1.completedLevels)
-        ? (parsedV1.completedLevels as number[])
-        : [];
+    // Fallback migration from legacy v2
+    const rawV2 = window.localStorage.getItem(LEGACY_STORAGE_KEY_V2);
+    if (rawV2) {
+      const parsedV2 = JSON.parse(rawV2) as { completedLevels?: number[] };
+      const completed: SeasonId[] = [];
+      const levels = parsedV2.completedLevels ?? [];
+      if (levels.includes(1)) completed.push('spring');
+      if (levels.includes(2)) completed.push('summer');
+      if (levels.includes(3)) completed.push('autumn');
+      if (levels.includes(4)) completed.push('winter');
 
-      const migrated: TrailKernelProgress = {
-        version: STORAGE_VERSION,
-        completedLevels: completed,
-        elevationGainMeters:
-          typeof parsedV1.elevationGainMeters === 'number'
-            ? parsedV1.elevationGainMeters
-            : 0,
-        unlockedNotebooks: Array.isArray(parsedV1.unlockedNotebooks)
-          ? (parsedV1.unlockedNotebooks as number[])
-          : completed,
-        unlockedCards: completed, // auto-unlock cards for already completed levels
-        examScore: typeof parsedV1.examScore === 'number' ? parsedV1.examScore : null,
-        lastActiveLevel:
-          typeof parsedV1.lastActiveLevel === 'number' ? parsedV1.lastActiveLevel : 1,
+      return {
+        ...DEFAULT_PROGRESS,
+        completedSeasons: completed,
+        elevationGainMeters: completed.length * 250,
       };
-
-      saveProgress(migrated);
-      return migrated;
     }
-
-    return { ...DEFAULT_PROGRESS };
-  } catch (err) {
-    console.warn('Unable to load TrailKernel progress from localStorage', err);
-    return { ...DEFAULT_PROGRESS };
+  } catch {
+    // Return default on corruption
   }
+
+  return { ...DEFAULT_PROGRESS };
 }
 
-/**
- * Save progress to localStorage safely.
- */
-export function saveProgress(progress: TrailKernelProgress): boolean {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return false;
-  }
-
+export function saveProgress(progress: TrailVisionProgress): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-    return true;
-  } catch (err) {
-    console.warn('Unable to save TrailKernel progress to localStorage', err);
-    return false;
+  } catch {
+    // Non-fatal
   }
 }
 
-/**
- * Reset all saved progress to initial state.
- */
-export function resetProgress(): TrailKernelProgress {
+export function grantSeasonReward(
+  progress: TrailVisionProgress,
+  season: SeasonId,
+): TrailVisionProgress {
+  const hasSeason = progress.completedSeasons.includes(season);
+  const updatedSeasons: SeasonId[] = hasSeason
+    ? progress.completedSeasons
+    : [...progress.completedSeasons, season];
+
+  const updated: TrailVisionProgress = {
+    ...progress,
+    completedSeasons: updatedSeasons,
+    elevationGainMeters: updatedSeasons.length * 250,
+  };
+
+  saveProgress(updated);
+  return updated;
+}
+
+export function resetProgress(): TrailVisionProgress {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY_V2);
       window.localStorage.removeItem(LEGACY_STORAGE_KEY_V1);
     } catch {
-      // Ignore
+      // Non-fatal
     }
   }
   return { ...DEFAULT_PROGRESS };
 }
 
-/**
- * Mark a level complete and grant elevation gain (+D meters), unlock notebook entry and "Je retiens" card.
- */
+// -------------------------------------------------------------
+// Legacy compatibility helpers for older test suites
+// -------------------------------------------------------------
+export type HikerRank =
+  'Marcheur' | 'Randonneur' | 'Alpiniste' | 'Guide de haute montagne';
+
+export type TrailKernelProgress = TrailVisionProgress;
+
+export function getRankFromElevation(dPlus: number): {
+  rank: HikerRank;
+  badge: string;
+  nextThreshold: number | null;
+} {
+  if (dPlus >= 1000) {
+    return {
+      rank: 'Guide de haute montagne',
+      badge: '🎖️ Guide Suprême des 4 Saisons',
+      nextThreshold: null,
+    };
+  }
+  if (dPlus >= 750) {
+    return { rank: 'Alpiniste', badge: '🧗 Alpiniste Chevronné', nextThreshold: 1000 };
+  }
+  if (dPlus >= 500) {
+    return { rank: 'Randonneur', badge: '🥾 Randonneur Aguerri', nextThreshold: 750 };
+  }
+  return { rank: 'Marcheur', badge: '🌲 Marcheur Initié', nextThreshold: 500 };
+}
+
 export function grantLevelReward(
-  current: TrailKernelProgress,
+  progress: TrailKernelProgress,
   levelId: number,
-  elevationAward: number,
+  elevationPerLevel = 250,
 ): TrailKernelProgress {
-  const isAlreadyCompleted = current.completedLevels.includes(levelId);
-  const nextCompleted = isAlreadyCompleted
-    ? current.completedLevels
-    : [...current.completedLevels, levelId];
-
-  const nextNotebooks = current.unlockedNotebooks.includes(levelId)
-    ? current.unlockedNotebooks
-    : [...current.unlockedNotebooks, levelId];
-
-  const nextCards = current.unlockedCards.includes(levelId)
-    ? current.unlockedCards
-    : [...current.unlockedCards, levelId];
-
-  const nextElevation = isAlreadyCompleted
-    ? current.elevationGainMeters
-    : current.elevationGainMeters + elevationAward;
-
-  const updated: TrailKernelProgress = {
-    ...current,
-    completedLevels: nextCompleted,
-    elevationGainMeters: nextElevation,
-    unlockedNotebooks: nextNotebooks,
-    unlockedCards: nextCards,
-    lastActiveLevel: levelId,
+  const seasonsMap: Record<number, SeasonId> = {
+    1: 'spring',
+    2: 'summer',
+    3: 'autumn',
+    4: 'winter',
   };
-
-  saveProgress(updated);
-  return updated;
+  const season = seasonsMap[levelId] ?? 'spring';
+  const updated = grantSeasonReward(progress, season);
+  return {
+    ...updated,
+    completedLevels: [...(progress.completedLevels ?? []), levelId],
+    unlockedCards: [...(progress.unlockedCards ?? []), levelId],
+    unlockedNotebooks: [...(progress.unlockedNotebooks ?? []), levelId],
+    elevationGainMeters: (progress.elevationGainMeters || 0) + elevationPerLevel,
+  };
 }

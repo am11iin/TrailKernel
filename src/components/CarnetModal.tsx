@@ -1,25 +1,51 @@
 import React, { useState } from 'react';
-import { T } from '@/data/texts';
+import { SEASON_BADGES, type SeasonId } from '@/core/storage';
 
 interface CarnetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  unlockedLevelIds: number[];
-  unlockedCardIds?: number[];
+  completedSeasons: SeasonId[];
+  isRevelationUnlocked: boolean;
 }
 
+const REAL_APPLICATIONS = [
+  {
+    season: 'spring' as SeasonId,
+    title: 'Surveillance de la Flore et Parcs Nationaux',
+    icon: '🌸',
+    desc: 'Les drones des gardes-parcs scannent les alpages par fenêtres carrées pour compter automatiquement les colonies d’edelweiss sans piétiner le milieu naturel.',
+  },
+  {
+    season: 'summer' as SeasonId,
+    title: 'Modèles Numériques de Terrain (MNT IGN)',
+    icon: '☀️',
+    desc: 'L’Institut Géographique National encode chaque altitude de 0 à 255 (ou en virgule flottante) pour créer les cartes de randonnée et calculer l’ensoleillement des versants.',
+  },
+  {
+    season: 'autumn' as SeasonId,
+    title: 'Détection des Couloirs d’Avalanches & Falaises',
+    icon: '🍂',
+    desc: 'En calculant la dérivée de la pente entre voisins, les pisteurs-secouristes identifient instantanément les cassures de relief à plus de 30° propices aux décrochements de neige.',
+  },
+  {
+    season: 'winter' as SeasonId,
+    title: 'Vision Thermique & Secours dans le Blizzard',
+    icon: '❄️',
+    desc: 'Dans la tourmente ou la nuit, les caméras de secours lissent le bruit visuel des flocons de neige pour faire ressortir la silhouette thermique d’un alpiniste égaré.',
+  },
+];
+
 /**
- * Carnet de Rando modal displaying:
- * 1) The "Je retiens" pedagogical cards unlocked by Amine.
- * 2) The real-world applications in mountain, satellite, and robotic environments.
+ * Carnet d'Expédition TrailVision.
+ * Displays the 4 seasonal badges and real-world alpine applications.
  */
 export default function CarnetModal({
   isOpen,
   onClose,
-  unlockedLevelIds,
-  unlockedCardIds = unlockedLevelIds,
+  completedSeasons,
+  isRevelationUnlocked,
 }: CarnetModalProps): React.JSX.Element | null {
-  const [activeTab, setActiveTab] = useState<'cards' | 'applications'>('cards');
+  const [activeTab, setActiveTab] = useState<'badges' | 'applications'>('badges');
 
   if (!isOpen) return null;
 
@@ -32,7 +58,7 @@ export default function CarnetModal({
     >
       <div className="relative w-full max-w-2xl max-h-[85vh] bg-stone-50 rounded-3xl border border-stone-300 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-stone-900 text-stone-100 flex items-center justify-between border-b border-stone-800">
+        <div className="p-4 sm:p-5 bg-[#1f1a16] text-stone-100 flex items-center justify-between border-b border-[#472c18]">
           <div className="flex items-center gap-3">
             <span className="text-2xl" role="img" aria-hidden="true">
               📓
@@ -42,10 +68,10 @@ export default function CarnetModal({
                 id="carnet-title"
                 className="text-lg font-black tracking-tight text-white"
               >
-                {T.nav.notebook} d'Amine
+                Carnet d'Expédition TrailVision
               </h2>
-              <p className="text-xs text-stone-400">
-                Idées retenues et applications réelles de la vision par ordinateur
+              <p className="text-xs text-amber-200/80">
+                Vos trophées saisonniers et applications réelles de haute montagne
               </p>
             </div>
           </div>
@@ -63,17 +89,15 @@ export default function CarnetModal({
         <div className="flex border-b border-stone-200 bg-white px-4 pt-2 gap-2">
           <button
             type="button"
-            onClick={() => setActiveTab('cards')}
+            onClick={() => setActiveTab('badges')}
             className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'cards'
+              activeTab === 'badges'
                 ? 'border-orange-600 text-orange-700'
                 : 'border-transparent text-stone-500 hover:text-stone-800'
             }`}
           >
-            <span>💡</span>
-            <span>
-              Mes cartes "Je retiens" ({unlockedCardIds.length}/{T.recapCards.length})
-            </span>
+            <span>🏅</span>
+            <span>Mes Badges ({completedSeasons.length}/4)</span>
           </button>
 
           <button
@@ -85,140 +109,96 @@ export default function CarnetModal({
                 : 'border-transparent text-stone-500 hover:text-stone-800'
             }`}
           >
-            <span>🛰️</span>
-            <span>
-              Applications Réelles ({unlockedLevelIds.length}/{T.notebook.length})
-            </span>
+            <span>🏔️</span>
+            <span>Applications Réelles de Haute Montagne</span>
           </button>
         </div>
 
         {/* Tab Content */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
-          {activeTab === 'cards' ? (
+          {activeTab === 'badges' ? (
             <div className="space-y-3">
-              <div className="text-xs text-stone-600 bg-amber-50 border border-amber-200 p-3 rounded-xl">
-                Ces 5 cartes résument toute la progression. Chaque niveau terminé y dépose
-                son idée clé !
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(['spring', 'summer', 'autumn', 'winter'] as SeasonId[]).map(
+                  (seasonId) => {
+                    const badge = SEASON_BADGES[seasonId];
+                    const isDone = completedSeasons.includes(seasonId);
 
-              <div className="grid grid-cols-1 gap-3">
-                {T.recapCards.map((card) => {
-                  const isUnlocked = unlockedCardIds.includes(card.levelId);
-
-                  return (
-                    <div
-                      key={card.levelId}
-                      className={`rounded-2xl border p-4 transition-all ${
-                        isUnlocked
-                          ? 'bg-white border-orange-200 shadow-xs'
-                          : 'bg-stone-100/60 border-stone-200/60 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                            isUnlocked
-                              ? 'bg-orange-600 text-white'
-                              : 'bg-stone-300 text-stone-600'
-                          }`}
-                        >
-                          {card.levelId}
-                        </span>
-
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-800 bg-orange-100/70 px-2 py-0.5 rounded">
-                              {card.badge}
+                    return (
+                      <div
+                        key={seasonId}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          isDone
+                            ? 'bg-white border-amber-300 shadow-sm'
+                            : 'bg-stone-100/70 border-stone-200 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{badge.icon}</span>
+                          <div>
+                            <span className="font-black text-sm block text-stone-900">
+                              {badge.name}
                             </span>
-                            {!isUnlocked && (
-                              <span className="text-[10px] text-stone-400 font-semibold">
-                                🔒 À débloquer au refuge {card.levelId}
-                              </span>
-                            )}
+                            <span className="text-[11px] text-stone-500 block">
+                              {badge.subtitle}
+                            </span>
                           </div>
-
-                          <h3 className="font-bold text-sm text-stone-900">
-                            {isUnlocked ? card.title : 'Idée encore cachée'}
-                          </h3>
-
-                          <p className="text-xs text-stone-700 font-medium leading-relaxed">
-                            {isUnlocked
-                              ? `« ${card.takeaway} »`
-                              : 'Terminez ce refuge sur le sentier pour révéler cette idée essentielle.'}
-                          </p>
+                        </div>
+                        <div className="mt-2.5 pt-2 border-t border-stone-100 flex justify-between items-center text-[10px]">
+                          <span className="font-semibold text-stone-500 uppercase">
+                            Saison {seasonId}
+                          </span>
+                          <span
+                            className={`font-black px-2 py-0.5 rounded-full ${
+                              isDone
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-stone-200 text-stone-500'
+                            }`}
+                          >
+                            {isDone ? '✓ Débloqué' : 'À accomplir'}
+                          </span>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  },
+                )}
               </div>
+
+              {isRevelationUnlocked && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-900 to-purple-900 text-white border border-indigo-400 shadow-md">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">⚡</span>
+                    <div>
+                      <span className="font-black text-sm block text-indigo-200">
+                        La Révélation est Déverrouillée !
+                      </span>
+                      <span className="text-xs text-stone-200">
+                        Vous avez terminé les 4 saisons. Rejoignez le refuge pour
+                        découvrir la grande révélation.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="text-xs text-stone-600 bg-orange-50 border border-orange-200 p-3 rounded-xl">
-                Chaque étape franchie débloque une fiche concrète utilisée par les
-                scientifiques et secouristes !
-              </div>
-
-              <div className="grid grid-cols-1 gap-3.5">
-                {T.notebook.map((entry) => {
-                  const isUnlocked = unlockedLevelIds.includes(entry.levelId);
-
-                  return (
-                    <div
-                      key={entry.levelId}
-                      className={`rounded-2xl border p-4 transition-all ${
-                        isUnlocked
-                          ? 'bg-white border-stone-200 shadow-xs'
-                          : 'bg-stone-100/70 border-stone-200/60 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className="text-2xl shrink-0 p-2 bg-stone-100 rounded-xl"
-                          role="img"
-                          aria-hidden="true"
-                        >
-                          {isUnlocked ? entry.icon : '🔒'}
-                        </span>
-                        <div className="space-y-1 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-700 bg-orange-100/60 px-2 py-0.5 rounded">
-                              {entry.category} (Étape {entry.levelId})
-                            </span>
-                            {!isUnlocked && (
-                              <span className="text-[10px] font-semibold text-stone-400">
-                                Terminez l'étape {entry.levelId}
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="font-bold text-sm text-stone-800">
-                            {isUnlocked ? entry.title : 'Fiche de terrain verrouillée'}
-                          </h3>
-                          <p className="text-xs text-stone-600 leading-relaxed">
-                            {isUnlocked
-                              ? entry.application
-                              : 'Franchissez ce refuge pour débloquer cette application professionnelle.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {REAL_APPLICATIONS.map((app) => (
+                <div
+                  key={app.title}
+                  className="p-4 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-1.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{app.icon}</span>
+                    <h4 className="font-bold text-xs sm:text-sm text-stone-900">
+                      {app.title}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-stone-600 leading-relaxed">{app.desc}</p>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-3.5 bg-stone-100 border-t border-stone-200 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-stone-800 hover:bg-stone-900 text-white transition-colors cursor-pointer"
-          >
-            Fermer le carnet
-          </button>
         </div>
       </div>
     </div>

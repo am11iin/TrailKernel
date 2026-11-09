@@ -32,26 +32,69 @@
     }
   }
   :focus-visible {
-    outline: 3px solid var(--color-sunset-500);
+    outline: 3px solid #ea580c;
     outline-offset: 2px;
   }
 }
 
-/* Background with Topographic Contours and Side Mountain / Pine Sketches */
+/* 4 Seasonal Themes via CSS Classes & Variables */
+.theme-spring {
+  --season-primary: #15803d;
+  --season-accent: #db2777;
+  --season-bg-tint: #f4faf2;
+  --season-card-border: #c8e6c9;
+  --season-badge-bg: #dcfce7;
+  --season-badge-text: #166534;
+}
+
+.theme-summer {
+  --season-primary: #ea580c;
+  --season-accent: #d97706;
+  --season-bg-tint: #fefce8;
+  --season-card-border: #fde68a;
+  --season-badge-bg: #fef3c7;
+  --season-badge-text: #92400e;
+}
+
+.theme-autumn {
+  --season-primary: #b45309;
+  --season-accent: #c2410c;
+  --season-bg-tint: #fbf5ed;
+  --season-card-border: #fed7aa;
+  --season-badge-bg: #ffedd5;
+  --season-badge-text: #9a3412;
+}
+
+.theme-winter {
+  --season-primary: #0284c7;
+  --season-accent: #0ea5e9;
+  --season-bg-tint: #f0f9ff;
+  --season-card-border: #bae6fd;
+  --season-badge-bg: #e0f2fe;
+  --season-badge-text: #0369a1;
+}
+
+.theme-revelation {
+  --season-primary: #4f46e5;
+  --season-accent: #9333ea;
+  --season-bg-tint: #0f172a;
+  --season-card-border: #6366f1;
+  --season-badge-bg: #312e81;
+  --season-badge-text: #c7d2fe;
+}
+
+/* Background with Topographic Contours and Side Mountain Silhouettes */
 .bg-topo-mountain-theme {
-  background-color: #fbf7ef;
+  background-color: #faf6ee;
   background-image:
-    /* Left side pine & mountain silhouette watermark */
-    radial-gradient(ellipse at 2% 50%, rgba(180, 165, 140, 0.15) 0%, transparent 40%),
-    /* Right side mountain silhouette watermark */
-    radial-gradient(ellipse at 98% 60%, rgba(180, 165, 140, 0.15) 0%, transparent 40%),
-    /* Topographic contour lines pattern */
+    radial-gradient(ellipse at 2% 40%, rgba(180, 165, 140, 0.16) 0%, transparent 40%),
+    radial-gradient(ellipse at 98% 50%, rgba(180, 165, 140, 0.16) 0%, transparent 40%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cpath d='M0 25 Q 40 10, 80 30 T 160 25 M0 55 Q 50 40, 100 60 T 160 50 M0 95 Q 40 110, 90 85 T 160 105 M0 135 Q 60 150, 110 125 T 160 140 M25 0 Q 40 40, 25 80 T 35 160 M85 0 Q 105 50, 95 100 T 100 160 M140 0 Q 155 45, 145 90 T 150 160' fill='none' stroke='%239e8c72' stroke-width='0.75' stroke-opacity='0.16'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-attachment: fixed;
 }
 
-/* Authentic Carved Wood Signboard */
+/* Authentic Carved Wood Park Signboard */
 .wood-board-panel {
   background: linear-gradient(180deg, #9b5a2b 0%, #7e451d 100%);
   border: 4px solid #542b10;
@@ -62,7 +105,6 @@
     inset 0 -3px 4px rgba(0, 0, 0, 0.4);
 }
 
-/* Wood Sign Planks */
 .wood-plank-brown {
   background: linear-gradient(180deg, #a76533 0%, #834a20 100%);
   border: 2px solid #582e11;
@@ -79,7 +121,6 @@
     inset 0 1px 2px rgba(255, 255, 255, 0.25);
 }
 
-/* Metallic Slate Bezel for Gauge */
 .metal-bezel-panel {
   background: linear-gradient(180deg, #6c7782 0%, #4e5760 100%);
   border: 2px solid #373f47;
@@ -88,7 +129,6 @@
     inset 0 1px 2px rgba(255, 255, 255, 0.35);
 }
 
-/* Wooden Picture Frame for Canvas */
 .map-wood-frame {
   border: 6px solid #8a4e22;
   box-shadow:
@@ -96,7 +136,6 @@
     inset 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
-/* Screw Rivets */
 .screw-rivet-gold {
   width: 7px;
   height: 7px;
@@ -117,14 +156,12 @@
     inset 0 1px 0.5px rgba(255, 255, 255, 0.7);
 }
 
-/* Parchment inner boxes */
 .parchment-box {
   background: #fdf7eb;
   border: 1.5px solid #dfcfb0;
   box-shadow: inset 0 1px 2px rgba(120, 90, 50, 0.06);
 }
 
-/* Mission Ribbon */
 .mission-ribbon-tag {
   background: linear-gradient(90deg, #995526 0%, #b86b33 50%, #995526 100%);
   border: 1.5px solid #6b3713;
@@ -132,9 +169,38 @@
   box-shadow: 0 3px 8px rgba(80, 40, 10, 0.25);
 }
 
-/* Laurel Success Banner */
 .success-laurel-banner {
   background: linear-gradient(90deg, #eef9ee 0%, #f4fbf3 100%);
   border: 2px solid #a3d99e;
   box-shadow: 0 2px 8px rgba(46, 125, 50, 0.12);
+}
+
+/* Ambient Floating Particles (Flowers, Sunshine, Leaves, Snow) */
+@keyframes particleFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-80px) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+.floating-particle {
+  position: absolute;
+  pointer-events: none;
+  animation: particleFloat 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-particle {
+    display: none !important;
+  }
 }
